@@ -8,9 +8,10 @@ from torchvision.transforms import Compose, ToTensor, Normalize, Lambda
 from torch.utils.data import DataLoader
 from random import sample
 import matplotlib.pyplot as plt
+import numpy as np
 
 
-def MNIST_loaders(train_batch_size=50000, test_batch_size=10000):
+def MNIST_loaders(train_batch_size=25000, test_batch_size=30000):
 
     transform = Compose([
         ToTensor(),
@@ -116,11 +117,43 @@ def reshape_hist( out ):
            0.5 * ( out[1][:-1] + out[1][1:] ) )
    return out
 
+def plot_histograms(net, layeridx, close_histograms=True):
+    Xpos = []
+    Hpos = []
+    Xneg = []
+    Hneg = []
+    plt.ion()
+    for i in range(len(net.layers[layeridx].pos)):
+       plt.figure()
+       out_pos = plt.hist(net.layers[layeridx].pos[i], 100)
+       out_neg = plt.hist(net.layers[layeridx].neg[i], 100)
+       if close_histograms:
+          plt.close()
+    
+       out_pos = reshape_hist(out_pos)
+       out_neg = reshape_hist(out_neg)
+       Xpos.append(out_pos[1])
+       Hpos.append(out_pos[0])
+       Xneg.append(out_neg[1])
+       Hneg.append(out_neg[0])
+
+    Xpos = np.array(Xpos).transpose() 
+    Hpos = np.array(Hpos).transpose() 
+    Xneg = np.array(Xneg).transpose() 
+    Hneg = np.array(Hneg).transpose() 
+
+    plt.figure()
+    for idx in range( Xpos.shape[1]):
+       plt.plot(Xpos[:,idx] + 10*idx, Hpos[:,idx], 'k', Xneg[:,idx] + 10*idx, Hneg[:,idx], 'k--')
+
+    plt.legend(['Positive Examples', 'Negative Examples'])
+    plt.grid('on')
+
 if __name__ == "__main__":
     torch.manual_seed(1234)
     train_loader, test_loader = MNIST_loaders()
 
-    net = Net([784, 500, 500])
+    net = Net([784, 500, 500, 500])
     x, y = next(iter(train_loader))
     #x, y = x.cuda(), y.cuda()
     x, y = x, y
@@ -138,6 +171,9 @@ if __name__ == "__main__":
     x_neg = overlay_y_on_x(x, yn)
     x_neg = clean_up_mem( x_neg )
 
+    net.layers[0].num_epochs = 1500 
+    net.layers[1].num_epochs = 1500 
+    net.layers[2].num_epochs = 1500 
     net.train(x_pos, x_neg)
 
     print('train error:', 1.0 - net.predict(x).eq(y).float().mean().item())
@@ -147,37 +183,8 @@ if __name__ == "__main__":
     x_te, y_te = x_te, y_te
 
     print('test error:', 1.0 - net.predict(x_te).eq(y_te).float().mean().item())
-
-    #plt.subplots(len(net.layers[0].pos), len(net.layers))
-
-    for i in range(len(net.layers[0].pos)):
-       plt.figure()
-       plt.hist(net.layers[0].pos[i], 100)
-       plt.hist(net.layers[0].neg[i], 100)
         
+    for idx in range(len(net.layers)):
+        plot_histograms(net, idx)
     
     
-    Xpos = []
-    Hpos = []
-    Xneg = []
-    Hneg = []
-    for i in range(len(net.layers[1].pos)):
-       plt.figure()
-       out_pos = plt.hist(net.layers[1].pos[i], 100)
-       out_neg = plt.hist(net.layers[1].neg[i], 100)
-    
-       out_pos = reshape_hist(out_pos)
-       out_neg = reshape_hist(out_neg)
-       Xpos.append(out_pos[1])
-       Hpos.append(out_pos[0])
-       Xneg.append(out_neg[1])
-       Hneg.append(out_neg[0])
-
-    Xpos = np.array(Xpos).transpose() 
-    Hpos = np.array(Hpos).transpose() 
-    Xneg = np.array(Xneg).transpose() 
-    Hneg = np.array(Hneg).transpose() 
-
-    plt.figure()
-    for idx in range( Xpos.shape[1]):
-       plt.plot(Xpos[:,idx] + 10*idx, Hpos[:,idx], 'k', Xneg[:,idx] + 10*idx, Hneg[:,idx], 'k--')
