@@ -107,6 +107,15 @@ class Layer(nn.Linear):
             self.opt.step()
         return self.forward(x_pos).detach(), self.forward(x_neg).detach()
 
+def clean_up_mem(x):
+   x = torch.tensor( x.detach().numpy() )
+   return x
+
+def reshape_hist( out ):
+   out = ( out[0], 
+           0.5 * ( out[1][:-1] + out[1][1:] ) )
+   return out
+
 if __name__ == "__main__":
     torch.manual_seed(1234)
     train_loader, test_loader = MNIST_loaders()
@@ -117,7 +126,18 @@ if __name__ == "__main__":
     x, y = x, y
     x_pos = overlay_y_on_x(x, y)
     rnd = torch.randperm(x.size(0))
-    x_neg = overlay_y_on_x(x, y[rnd])
+    yn = y[rnd]
+    ind = y != yn
+    x_pos = x_pos[ind,:]
+    x_pos = clean_up_mem( x_pos )    
+
+    x = x[ind, :]
+    x = clean_up_mem( x )
+    y = y[ind]
+    yn = yn[ind]
+    x_neg = overlay_y_on_x(x, yn)
+    x_neg = clean_up_mem( x_neg )
+
     net.train(x_pos, x_neg)
 
     print('train error:', 1.0 - net.predict(x).eq(y).float().mean().item())
@@ -128,17 +148,36 @@ if __name__ == "__main__":
 
     print('test error:', 1.0 - net.predict(x_te).eq(y_te).float().mean().item())
 
-    plt.subplots(len(net.layers[0].pos), len(net.layers))
+    #plt.subplots(len(net.layers[0].pos), len(net.layers))
 
-     for i in range(len(net.layers[0].pos)):
-        plt.figure()
-        plt.hist(net.layers[0].pos[i], 100)
-        plt.hist(net.layers[0].neg[i], 100)
+    for i in range(len(net.layers[0].pos)):
+       plt.figure()
+       plt.hist(net.layers[0].pos[i], 100)
+       plt.hist(net.layers[0].neg[i], 100)
         
     
     
-     for i in range(len(net.layers[1].pos)):
-        plt.figure()
-        plt.hist(net.layers[1].pos[i], 100)
-        plt.hist(net.layers[1].neg[i], 100)
+    Xpos = []
+    Hpos = []
+    Xneg = []
+    Hneg = []
+    for i in range(len(net.layers[1].pos)):
+       plt.figure()
+       out_pos = plt.hist(net.layers[1].pos[i], 100)
+       out_neg = plt.hist(net.layers[1].neg[i], 100)
     
+       out_pos = reshape_hist(out_pos)
+       out_neg = reshape_hist(out_neg)
+       Xpos.append(out_pos[1])
+       Hpos.append(out_pos[0])
+       Xneg.append(out_neg[1])
+       Hneg.append(out_neg[0])
+
+    Xpos = np.array(Xpos).transpose() 
+    Hpos = np.array(Hpos).transpose() 
+    Xneg = np.array(Xneg).transpose() 
+    Hneg = np.array(Hneg).transpose() 
+
+    plt.figure()
+    for idx in range( Xpos.shape[1]):
+       plt.plot(Xpos[:,idx] + 10*idx, Hpos[:,idx], 'k', Xneg[:,idx] + 10*idx, Hneg[:,idx], 'k--')
