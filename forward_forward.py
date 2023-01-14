@@ -1,3 +1,9 @@
+#
+#
+#  Invesigating the properties of the forward-forward implementation by Mohammad Pezeshki
+#  Original source:
+#          https://github.com/mohammadpz/pytorch_forward_forward
+
 import torch
 import pdb
 import torch.nn as nn
